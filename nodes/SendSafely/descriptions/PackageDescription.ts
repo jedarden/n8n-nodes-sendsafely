@@ -169,7 +169,7 @@ export async function execute(
 
 	// Import SendSafely SDK
 	const SendSafely = require('@sendsafely/sendsafely');
-	const sendsafely = new SendSafely(credentials.apiUrl, credentials.apiKey, credentials.apiSecret);
+	const sendsafely = new SendSafely(credentials.baseUrl, credentials.apiKey, credentials.apiSecret);
 
 	let responseData;
 
