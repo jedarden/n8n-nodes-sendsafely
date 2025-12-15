@@ -34,7 +34,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - name: Checkout code
@@ -47,16 +47,22 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
+      - name: Update npm to latest (requires 11.5.1+ for trusted publishing)
+        run: npm install -g npm@latest
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build package
         run: npm run build
 
-      - name: Publish to npm
+      - name: Copy assets to dist
+        run: |
+          cp nodes/SendSafely/sendsafely.svg dist/nodes/SendSafely/
+          cp nodes/SendSafely/SendSafely.node.json dist/nodes/SendSafely/
+
+      - name: Publish with provenance (trusted publishing - no NPM_TOKEN needed)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   create-github-release:
     needs: publish-npm
