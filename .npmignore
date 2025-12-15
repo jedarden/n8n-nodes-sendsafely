@@ -1,0 +1,45 @@
+# Source files (only ship dist/)
+credentials/
+nodes/
+__tests__/
+**/*.test.ts
+**/*.spec.ts
+
+# Configuration files
+tsconfig.json
+tsconfig.build.json
+.eslintrc.js
+.prettierrc
+jest.config.js
+
+# Development
+.vscode/
+.idea/
+*.log
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Documentation (optional, include if you want docs in package)
+docs/
+*.md
+!README.md
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+azure-pipelines.yml
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~

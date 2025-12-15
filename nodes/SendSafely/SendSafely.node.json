@@ -1,0 +1,38 @@
+{
+	"node": "n8n-nodes-sendsafely.sendSafely",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": [
+		"Communication",
+		"Data & Storage"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://sendsafely.zendesk.com/hc/en-us/articles/360037927791-SendSafely-REST-API"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://sendsafely.zendesk.com/hc/en-us/articles/360037927791-SendSafely-REST-API"
+			}
+		]
+	},
+	"alias": [
+		"SendSafely",
+		"Secure File Transfer",
+		"Encrypted Sharing",
+		"Secure Email",
+		"File Encryption"
+	],
+	"subcategories": {
+		"Communication": [
+			"Email",
+			"Secure Messaging"
+		],
+		"Data & Storage": [
+			"File Storage",
+			"File Sharing"
+		]
+	}
+}
