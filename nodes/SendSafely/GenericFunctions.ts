@@ -2,8 +2,8 @@ import type { IExecuteFunctions } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
 // Import SendSafely SDK
-// @ts-ignore - SendSafely SDK doesn't have TypeScript definitions
-import SendSafely from 'sendsafely';
+// @ts-expect-error - SendSafely SDK doesn't have TypeScript definitions
+import SendSafely from '@sendsafely/sendsafely';
 
 /**
  * Initialize and return a SendSafely SDK client with credentials
@@ -163,7 +163,7 @@ export function sanitizeFileName(fileName: string): string {
 
 	// Remove path traversal patterns
 	let sanitized = fileName.replace(/\.\./g, '');
-	sanitized = sanitized.replace(/[\/\\]/g, '');
+	sanitized = sanitized.replace(/[/\\]/g, '');
 
 	// Remove null bytes
 	sanitized = sanitized.replace(/\0/g, '');

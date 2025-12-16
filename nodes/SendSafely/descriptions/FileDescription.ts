@@ -203,6 +203,7 @@ export async function execute(
 	const credentials = await this.getCredentials('sendSafelyApi');
 
 	// Import SendSafely SDK
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
 	const SendSafely = require('@sendsafely/sendsafely');
 	const sendsafely = new SendSafely(credentials.baseUrl, credentials.apiKey, credentials.apiSecret);
 
