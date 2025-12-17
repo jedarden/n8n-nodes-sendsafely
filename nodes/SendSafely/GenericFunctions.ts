@@ -6,12 +6,85 @@ import { NodeOperationError } from 'n8n-workflow';
 import SendSafely from '@sendsafely/sendsafely';
 
 /**
+ * Logger interface for SendSafely operations
+ * Provides structured logging with sensitive data protection
+ */
+export interface SendSafelyLogger {
+	debug: (message: string, meta?: Record<string, unknown>) => void;
+	info: (message: string, meta?: Record<string, unknown>) => void;
+	warn: (message: string, meta?: Record<string, unknown>) => void;
+	error: (message: string, meta?: Record<string, unknown>) => void;
+}
+
+/**
+ * Get a logger instance from the execution context
+ * Falls back to console if n8n logger is unavailable
+ */
+export function getLogger(context: IExecuteFunctions): SendSafelyLogger {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const n8nLogger = (context as any).logger as SendSafelyLogger | undefined;
+
+	const formatMessage = (_level: string, message: string, meta?: Record<string, unknown>): string => {
+		const metaStr = meta ? ` ${JSON.stringify(sanitizeLogMeta(meta))}` : '';
+		return `[SendSafely] ${message}${metaStr}`;
+	};
+
+	if (n8nLogger) {
+		return {
+			debug: (message, meta) => n8nLogger.debug(formatMessage('DEBUG', message, meta)),
+			info: (message, meta) => n8nLogger.info(formatMessage('INFO', message, meta)),
+			warn: (message, meta) => n8nLogger.warn(formatMessage('WARN', message, meta)),
+			error: (message, meta) => n8nLogger.error(formatMessage('ERROR', message, meta)),
+		};
+	}
+
+	// Fallback to console for environments without n8n logger
+	return {
+		debug: (message, meta) => console.debug(formatMessage('DEBUG', message, meta)),
+		info: (message, meta) => console.info(formatMessage('INFO', message, meta)),
+		warn: (message, meta) => console.warn(formatMessage('WARN', message, meta)),
+		error: (message, meta) => console.error(formatMessage('ERROR', message, meta)),
+	};
+}
+
+/**
+ * Sanitize log metadata to remove sensitive information
+ */
+function sanitizeLogMeta(meta: Record<string, unknown>): Record<string, unknown> {
+	const sensitiveKeys = [
+		'apiKey', 'apiSecret', 'api_key', 'api_secret',
+		'password', 'token', 'authorization', 'keyCode',
+		'serverSecret', 'packageCode', 'encryptionKey',
+	];
+
+	const sanitized: Record<string, unknown> = {};
+
+	for (const [key, value] of Object.entries(meta)) {
+		const lowerKey = key.toLowerCase();
+		if (sensitiveKeys.some(sk => lowerKey.includes(sk.toLowerCase()))) {
+			sanitized[key] = '***REDACTED***';
+		} else if (typeof value === 'string' && value.length > 100) {
+			// Truncate very long strings
+			sanitized[key] = value.substring(0, 100) + '...[truncated]';
+		} else {
+			sanitized[key] = value;
+		}
+	}
+
+	return sanitized;
+}
+
+/**
  * Initialize and return a SendSafely SDK client with credentials
  */
 export async function getSendSafelyClient(this: IExecuteFunctions): Promise<any> {
+	const logger = getLogger(this);
+	logger.debug('Initializing SendSafely client');
+
 	const credentials = await this.getCredentials('sendSafelyApi');
 
 	if (!credentials) {
+		logger.error('No credentials returned from getCredentials');
 		throw new NodeOperationError(
 			this.getNode(),
 			'No credentials returned from getCredentials',
@@ -21,6 +94,11 @@ export async function getSendSafelyClient(this: IExecuteFunctions): Promise<any>
 	const { baseUrl, apiKey, apiSecret } = credentials;
 
 	if (!baseUrl || !apiKey || !apiSecret) {
+		logger.error('Missing required credentials', {
+			hasBaseUrl: !!baseUrl,
+			hasApiKey: !!apiKey,
+			hasApiSecret: !!apiSecret,
+		});
 		throw new NodeOperationError(
 			this.getNode(),
 			'Missing required credentials: baseUrl, apiKey, or apiSecret',
@@ -28,10 +106,13 @@ export async function getSendSafelyClient(this: IExecuteFunctions): Promise<any>
 	}
 
 	try {
+		logger.info('Creating SendSafely client', { baseUrl: baseUrl as string });
 		// Initialize SendSafely client
 		const client = new SendSafely(baseUrl as string, apiKey as string, apiSecret as string);
+		logger.debug('SendSafely client created successfully');
 		return client;
 	} catch (error) {
+		logger.error('Failed to initialize SendSafely client', { error: sanitizeError(error) });
 		throw new NodeOperationError(
 			this.getNode(),
 			`Failed to initialize SendSafely client: ${sanitizeError(error)}`,
@@ -65,11 +146,15 @@ export async function withRetry<T>(
 	fn: () => Promise<T>,
 	maxRetries: number = 3,
 	baseDelay: number = 1000,
+	logger?: SendSafelyLogger,
 ): Promise<T> {
 	let lastError: Error | undefined;
 
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
+			if (attempt > 0 && logger) {
+				logger.debug('Retry attempt starting', { attempt, maxRetries });
+			}
 			return await fn();
 		} catch (error: any) {
 			lastError = error;
@@ -84,11 +169,24 @@ export async function withRetry<T>(
 
 			// Only retry on rate limit or server errors
 			if (!isRateLimitError && !isServerError) {
+				if (logger) {
+					logger.debug('Non-retryable error encountered', {
+						errorType: isRateLimitError ? 'rateLimit' : isServerError ? 'serverError' : 'clientError',
+						statusCode: error.statusCode,
+					});
+				}
 				throw error;
 			}
 
 			// Don't retry if we've exhausted attempts
 			if (attempt === maxRetries) {
+				if (logger) {
+					logger.warn('Max retries exhausted', {
+						attempts: attempt + 1,
+						maxRetries,
+						errorType: isRateLimitError ? 'rateLimit' : 'serverError',
+					});
+				}
 				break;
 			}
 
@@ -96,6 +194,16 @@ export async function withRetry<T>(
 			const delay = baseDelay * Math.pow(2, attempt);
 			const jitter = Math.random() * 200; // Add small random jitter
 			const totalDelay = delay + jitter;
+
+			if (logger) {
+				logger.info('Retrying after delay', {
+					attempt: attempt + 1,
+					maxRetries,
+					delayMs: Math.round(totalDelay),
+					errorType: isRateLimitError ? 'rateLimit' : 'serverError',
+					statusCode: error.statusCode,
+				});
+			}
 
 			// Wait before retrying
 			await new Promise((resolve) => setTimeout(resolve, totalDelay));

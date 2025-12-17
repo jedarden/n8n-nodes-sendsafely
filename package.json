@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-sendsafely",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "n8n node for SendSafely secure file transfer and encryption",
   "license": "MIT",
   "homepage": "https://github.com/jedarden/n8n-nodes-sendsafely",
